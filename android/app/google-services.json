@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "581600224420",
+    "project_id": "baseball-fd12d",
+    "storage_bucket": "baseball-fd12d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:581600224420:android:0eb9951e0c0fd8567f3231",
+        "android_client_info": {
+          "package_name": "com.example.flc_project"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "581600224420-o9qr1ah7u4u9ksf0uqi7b6hsh92bnora.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.flc_project",
+            "certificate_hash": "2576ef17f6ffcbb8e854cb48596f37257458960a"
+          }
+        },
+        {
+          "client_id": "581600224420-7hnolsn2e6f2vv62d2rlor8hjbh218qa.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBayKXchzV5ADHeiBQ5txX7NI3CiRzyDng"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "581600224420-7hnolsn2e6f2vv62d2rlor8hjbh218qa.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "581600224420-09ua8p6joptbvg67mrcvh428f77oh9v2.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.flcProject"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
