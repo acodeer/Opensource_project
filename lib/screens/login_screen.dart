@@ -1,6 +1,7 @@
 // lib/screens/login_screen.dart
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -15,7 +16,12 @@ class _LoginScreenState extends State<LoginScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // 의존성 버전에 맞춰 인스턴스를 생성하는 것이 안정적일 수 있습니다.
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    clientId: kIsWeb
+        ? "581600224420-7hnolsn2e6f2vv62d2rlor8hjbh218qa.apps.googleusercontent.com"
+
+        : null,
+  );
   bool _isLoading = false;
 
   Future<void> _signInWithGoogle() async {
