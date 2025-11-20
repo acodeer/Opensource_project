@@ -3,6 +3,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'chat_room_screen.dart'; // 💡 채팅 연결을 위한 임포트 추가
 
 class PostDetailScreen extends StatefulWidget {
   final String postId;
@@ -16,6 +17,41 @@ class PostDetailScreen extends StatefulWidget {
 class _PostDetailScreenState extends State<PostDetailScreen> {
   final _commentController = TextEditingController();
   final _currentUser = FirebaseAuth.instance.currentUser;
+
+  // 💡 [추가된 함수] 작성자에게 1:1 채팅방으로 이동하는 함수
+  void _navigateToChatRoom(String writerUid, String postTitle) {
+    final currentUserUid = _currentUser?.uid;
+
+    if (currentUserUid == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('로그인 후 채팅을 시작할 수 있습니다.')),
+      );
+      return;
+    }
+
+    if (currentUserUid == writerUid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('본인에게 채팅을 걸 수 없습니다.')),
+      );
+      return;
+    }
+
+    // 두 사용자 ID를 정렬하여 일관된 채팅방 ID를 생성
+    final List<String> uids = [currentUserUid, writerUid];
+    uids.sort();
+    final chatRoomId = 'chat_${uids.join('_')}'; // 예: chat_userA_userB
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        // chatRoomId와 chatRoomTitle을 ChatRoomScreen에 전달
+        builder: (context) => ChatRoomScreen(
+          chatRoomId: chatRoomId,
+          chatRoomTitle: "1:1 채팅: $postTitle", // 게시글 제목을 활용
+        ),
+      ),
+    );
+  }
 
   Future<void> _addComment() async {
     if (_commentController.text.isEmpty || _currentUser == null) {
@@ -53,6 +89,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   if (!snapshot.hasData)
                     return const Center(child: CircularProgressIndicator());
                   final post = snapshot.data!.data() as Map<String, dynamic>;
+
+                  // 💡 [추가된 로직] 현재 로그인 사용자가 작성자와 동일한지 확인
+                  final isMyPost = post['uid'] == _currentUser?.uid;
+
                   return Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -63,6 +103,24 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         const SizedBox(height: 8),
                         Text("작성자: ${post['writer'] ?? '익명'}",
                             style: const TextStyle(color: Colors.grey)),
+
+                        // 💡 [추가된 위젯] 작성자가 아니거나 로그인된 경우에만 버튼 표시
+                        if (!isMyPost && _currentUser != null && post.containsKey('uid'))
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: ElevatedButton.icon(
+                                onPressed: () => _navigateToChatRoom(
+                                  post['uid'], // 게시글 문서에 저장된 작성자 UID 사용
+                                  post['title'] ?? '제목 없음',
+                                ),
+                                icon: const Icon(Icons.send, size: 18),
+                                label: const Text('작성자에게 채팅하기'),
+                              ),
+                            ),
+                          ),
+
                         const SizedBox(height: 16),
                         const Divider(),
                         const SizedBox(height: 16),
