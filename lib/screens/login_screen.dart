@@ -1,9 +1,10 @@
-// lib/screens/login_screen.dart
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+
+// ★ 데모 입장을 위해 MainScreen import
+import 'main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,49 +15,32 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  // 의존성 버전에 맞춰 인스턴스를 생성하는 것이 안정적일 수 있습니다.
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     clientId: kIsWeb
-        ? "581600224420-7hnolsn2e6f2vv62d2rlor8hjbh218qa.apps.googleusercontent.com"
-
+        ? "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
         : null,
   );
+
   bool _isLoading = false;
 
   Future<void> _signInWithGoogle() async {
-    // 로딩 중일 때 버튼이 다시 눌리는 것을 방지
     if (_isLoading) return;
-
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-
       if (googleUser == null) {
-        // 사용자가 로그인을 취소한 경우
-        if (mounted) {
-          setState(() => _isLoading = false);
-        }
+        if (mounted) setState(() => _isLoading = false);
         return;
       }
 
-      final GoogleSignInAuthentication googleAuth = await googleUser
-          .authentication;
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
       final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      // Firebase에 로그인
       await _auth.signInWithCredential(credential);
-
-      // 로그인 성공 시 main.dart의 StreamBuilder가 화면을 전환하므로
-      // 여기서 별도의 화면 이동 코드는 필요 없습니다.
-      // 위젯이 unmount될 수 있으므로 이후 코드는 실행되지 않을 수 있습니다.
-
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -64,50 +48,74 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey[900], // 어두운 배경
       body: Center(
         child: _isLoading
-            ? const CircularProgressIndicator()
+            ? const CircularProgressIndicator(color: Colors.white)
             : Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('내 손안의 게시판',
-                style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[800])),
+            const Icon(Icons.sports_baseball, size: 80, color: Colors.white),
+            const SizedBox(height: 20),
+            const Text(
+              '갈래말래',
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
             const SizedBox(height: 10),
-            Text('구글 계정으로 간편하게 시작하세요',
-                style: TextStyle(fontSize: 16, color: Colors.grey[600])),
-            const SizedBox(height: 50),
-            ElevatedButton(
+            Text(
+              '혼자 보는 야구는 이제 그만!',
+              style: TextStyle(fontSize: 16, color: Colors.grey[400]),
+            ),
+            const SizedBox(height: 60),
+
+            // 1. 구글 로그인 버튼
+            ElevatedButton.icon(
               onPressed: _signInWithGoogle,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.black,
-                minimumSize: const Size(250, 50),
-                elevation: 1.0,
+                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // assets 폴더에 로고가 없다면 오류가 발생할 수 있습니다.
-                  // Image.asset('assets/google_logo.png', height: 22.0),
-                  Icon(Icons.login), // 이미지가 없다면 아이콘으로 대체
-                  const SizedBox(width: 12),
-                  const Text('Google 계정으로 로그인', style: TextStyle(fontSize: 16)),
-                ],
+              icon: const Icon(Icons.g_mobiledata, size: 30, color: Colors.blue),
+              label: const Text(
+                'Google 계정으로 시작하기',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // 2. ★ 추가된 데모용 입장 버튼 ★
+            TextButton(
+              onPressed: () {
+                // 로그인 로직 없이 강제로 메인 화면으로 이동
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => const MainScreen()),
+                );
+              },
+              child: const Text(
+                '게스트로 입장하기 (데모용) >',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 14,
+                  decoration: TextDecoration.underline,
+                  decorationColor: Colors.white54,
+                ),
               ),
             ),
           ],

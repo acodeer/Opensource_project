@@ -1,9 +1,11 @@
-// lib/screens/main_screen.dart
-
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'home_screen.dart'; // HomeScreen을 본문으로 사용
+
+// ★ 아래 4개의 파일이 lib/screens 폴더 안에 있어야 하며,
+// 각 파일 내부의 클래스 이름이 아래와 일치해야 합니다.
+import 'home_screen.dart';      // 클래스명: KboSchedulePage
+import 'chat_list_screen.dart'; // 클래스명: ChatListScreen
+import 'board_screen.dart';     // 클래스명: BoardScreen
+import 'settings_screen.dart';  // 클래스명: SettingsScreen
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -13,42 +15,63 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  // 로그아웃 함수
-  Future<void> _logout() async {
-    try {
-      // 구글 로그아웃 (다음 로그인 시 계정 선택 창이 뜨도록 함)
-      await GoogleSignIn().signOut();
-      // 파이어베이스 로그아웃
-      await FirebaseAuth.instance.signOut();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('로그아웃 중 오류 발생: $e')),
-        );
-      }
-    }
+  // 현재 선택된 탭의 인덱스 (0: 홈, 1: 채팅, 2: 게시판, 3: 설정)
+  int _selectedIndex = 0;
+
+  // 탭별로 보여줄 화면 리스트
+  // ★ 주의: home_screen.dart 안에 있는 클래스 이름은 'KboSchedulePage'여야 합니다.
+  final List<Widget> _pages = [
+    const KboSchedulePage(), // 1. 홈 (KBO 일정)
+    ChatListScreen(),        // 2. 채팅 목록
+    const BoardScreen(),     // 3. 게시판
+    const SettingsScreen(),  // 4. 설정
+  ];
+
+  // 탭을 눌렀을 때 실행되는 함수
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-
     return Scaffold(
-      appBar: AppBar(
-        title: Text(user?.displayName ?? '메인 화면'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _logout, // 로그아웃 함수 연결
-            tooltip: '로그아웃',
+      // 현재 인덱스에 맞는 화면을 body에 표시
+      body: _pages[_selectedIndex],
+
+      // 하단 네비게이션 바 설정
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed, // 탭이 4개 이상이므로 fixed 필수
+        backgroundColor: Colors.white,       // 바 배경색
+        selectedItemColor: Colors.blue[900], // 선택된 아이콘 색상 (KBO 파랑)
+        unselectedItemColor: Colors.grey,    // 선택 안 된 아이콘 색상
+        showUnselectedLabels: true,          // 선택 안 된 라벨도 보이게 설정
+        currentIndex: _selectedIndex,        // 현재 선택된 인덱스
+        onTap: _onItemTapped,                // 탭 클릭 시 함수 실행
+        elevation: 10,                       // 그림자 효과
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home),
+            label: '홈',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat_bubble_outline),
+            activeIcon: Icon(Icons.chat_bubble),
+            label: '채팅',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.people_alt_outlined),
+            activeIcon: Icon(Icons.people_alt),
+            label: '게시판',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings_outlined),
+            activeIcon: Icon(Icons.settings),
+            label: '설정',
           ),
         ],
-      ),
-      // MainScreen의 본문은 HomeScreen이 담당하도록 구조화
-      body: HomeScreen(
-        onNavigateToSpare: () {
-          // 예비화면 기능이 필요하다면 여기에 로직 추가
-        },
       ),
     );
   }
