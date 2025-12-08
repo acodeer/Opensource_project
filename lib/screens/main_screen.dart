@@ -1,13 +1,11 @@
-// lib/screens/main_screen.dart
+// lib/screens/main_screen.dart (수정)
 
 import 'package:flutter/material.dart';
-
-// 화면 파일들 import
-// 💡 KboSchedulePage가 MatchGameScheduleScreen으로 대체됩니다.
-import 'home_screen.dart';      // 클래스명: MatchGameScheduleScreen
-import 'chat_list_screen.dart'; // 클래스명: ChatListScreen
-import 'board_screen.dart';     // 클래스명: BoardScreen
-import 'settings_screen.dart';  // 클래스명: SettingsScreen
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'board_screen.dart'; // 탭 0
+import 'chat_list_screen.dart'; // 탭 1
+import 'settings_screen.dart'; // 탭 2
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -17,62 +15,61 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  // 현재 선택된 탭의 인덱스 (0: 홈, 1: 채팅, 2: 게시판, 3: 설정)
-  int _selectedIndex = 0;
+  int _selectedIndex = 0; // 현재 선택된 탭 인덱스
 
-  // 탭별로 보여줄 화면 리스트
-  final List<Widget> _pages = [
-    const MatchGameScheduleScreen(), // 1. 홈 (경기/파티 스케줄로 변경)
-    ChatListScreen(),        // 2. 채팅 목록
-    const BoardScreen(),     // 3. 게시판
-    const SettingsScreen(),  // 4. 설정
+  // 탭에 표시할 화면 리스트
+  final List<Widget> _screens = [
+    const BoardScreen(),
+    ChatListScreen(),
+    const SettingsScreen(),
   ];
 
-  // 탭을 눌렀을 때 실행되는 함수
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
   }
 
+  // 기존 로그아웃 함수는 SettingsScreen으로 이동시키거나,
+  // MainScreen에서 관리하고 SettingsScreen에 콜백으로 넘겨줄 수 있습니다.
+  // 여기서는 SettingsScreen에서 직접 호출하도록 구조를 단순화합니다.
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      // 현재 인덱스에 맞는 화면을 body에 표시
-      body: _pages[_selectedIndex],
+    final user = FirebaseAuth.instance.currentUser;
 
-      // 하단 네비게이션 바 설정
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_selectedIndex == 0 ? '자유 게시판' : (_selectedIndex == 1 ? '채팅' : '환경 설정')),
+        // AppBar의 로그아웃 버튼은 SettingsScreen으로 옮깁니다.
+        // actions: [ 기존 로그아웃 버튼 제거 ],
+      ),
+
+      // IndexedStack을 사용하여 탭 전환 시 화면 상태를 유지합니다.
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _screens,
+      ),
+
+      // 하단 탭 바
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed, // 탭이 4개 이상이므로 fixed 필수
-        backgroundColor: Colors.white,       // 바 배경색
-        selectedItemColor: Colors.blue[900], // 선택된 아이콘 색상 (KBO 파랑)
-        unselectedItemColor: Colors.grey,    // 선택 안 된 아이콘 색상
-        showUnselectedLabels: true,          // 선택 안 된 라벨도 보이게 설정
-        currentIndex: _selectedIndex,        // 현재 선택된 인덱스
-        onTap: _onItemTapped,                // 탭 클릭 시 함수 실행
-        elevation: 10,                       // 그림자 효과
-        items: const [
+        items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: '홈',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            activeIcon: Icon(Icons.chat_bubble),
-            label: '채팅',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people_alt_outlined),
-            activeIcon: Icon(Icons.people_alt),
+            icon: Icon(Icons.dashboard),
             label: '게시판',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-            activeIcon: Icon(Icons.settings),
+            icon: Icon(Icons.chat),
+            label: '채팅',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
             label: '설정',
           ),
         ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Theme.of(context).primaryColor,
+        onTap: _onItemTapped,
       ),
     );
   }
