@@ -1,8 +1,10 @@
+// lib/screens/main_screen.dart
+
 import 'package:flutter/material.dart';
 
-// ★ 아래 4개의 파일이 lib/screens 폴더 안에 있어야 하며,
-// 각 파일 내부의 클래스 이름이 아래와 일치해야 합니다.
-import 'home_screen.dart';      // 클래스명: KboSchedulePage
+// 화면 파일들 import
+// 💡 KboSchedulePage가 MatchGameScheduleScreen으로 대체됩니다.
+import 'home_screen.dart';      // 클래스명: MatchGameScheduleScreen
 import 'chat_list_screen.dart'; // 클래스명: ChatListScreen
 import 'board_screen.dart';     // 클래스명: BoardScreen
 import 'settings_screen.dart';  // 클래스명: SettingsScreen
@@ -19,9 +21,8 @@ class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
   // 탭별로 보여줄 화면 리스트
-  // ★ 주의: home_screen.dart 안에 있는 클래스 이름은 'KboSchedulePage'여야 합니다.
   final List<Widget> _pages = [
-    const KboSchedulePage(), // 1. 홈 (KBO 일정)
+    const MatchGameScheduleScreen(), // 1. 홈 (경기/파티 스케줄로 변경)
     ChatListScreen(),        // 2. 채팅 목록
     const BoardScreen(),     // 3. 게시판
     const SettingsScreen(),  // 4. 설정

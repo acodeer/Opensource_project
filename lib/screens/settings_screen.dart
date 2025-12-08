@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+// ★ LoginScreen에서 정의한 WEB_CLIENT_ID를 가져오기 위해 import 합니다.
+import 'login_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -8,9 +10,20 @@ class SettingsScreen extends StatelessWidget {
   // 로그아웃 처리 함수
   Future<void> _logout(BuildContext context) async {
     try {
-      await GoogleSignIn().signOut();
+      // 1. GoogleSignIn 인스턴스를 명시적으로 생성하며, WEB_CLIENT_ID를 전달합니다.
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        clientId: WEB_CLIENT_ID, // ★ 웹 환경에서 Assertion 오류 방지
+      );
+
+      // 2. Google 세션 상태를 로그아웃 처리
+      if (await googleSignIn.isSignedIn()) {
+        await googleSignIn.signOut();
+        await googleSignIn.disconnect();
+      }
+
+      // 3. Firebase 인증 상태 로그아웃
       await FirebaseAuth.instance.signOut();
-      // main.dart의 StreamBuilder가 로그아웃을 감지하여 로그인 화면으로 자동 전환됨
+
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

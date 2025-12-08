@@ -1,6 +1,8 @@
+// lib/screens/home_screen.dart
+
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'match_waiting_screen.dart'; // ★ 대기방 이동을 위해 추가
+import 'match_waiting_screen.dart'; // 대기방 이동을 위해 import
 
 // --- 데이터 모델 ---
 class Game {
@@ -55,15 +57,15 @@ List<Game> sampleGames = [
 final List<MatchParty> localParties = [];
 const List<String> availableTags = ['응원단', '가벼운 술자리', '아이와 동행', '초보 환영', '포토존', '야간 응원'];
 
-// --- ★ 메인 홈 화면 클래스 (KboSchedulePage) ---
-class KboSchedulePage extends StatefulWidget {
-  const KboSchedulePage({super.key});
+// --- ★ 메인 홈 화면 클래스 (MatchGameScheduleScreen으로 이름 변경) ---
+class MatchGameScheduleScreen extends StatefulWidget {
+  const MatchGameScheduleScreen({super.key});
 
   @override
-  State<KboSchedulePage> createState() => _KboSchedulePageState();
+  State<MatchGameScheduleScreen> createState() => _MatchGameScheduleScreenState();
 }
 
-class _KboSchedulePageState extends State<KboSchedulePage> {
+class _MatchGameScheduleScreenState extends State<MatchGameScheduleScreen> {
   late List<Game> _games;
 
   @override
@@ -286,7 +288,7 @@ class _MatchCreateState extends State<MatchCreateScreen> {
             ),
             const SizedBox(height: 30),
 
-            // ★ 태그 선택 UI (수정됨) ★
+            // ★ 태그 선택 UI ★
             const Text('태그 선택 (최대 3개)', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             Wrap(
@@ -338,7 +340,7 @@ class _MatchCreateState extends State<MatchCreateScreen> {
                   // 2. 로컬 리스트에 추가
                   localParties.add(newParty);
 
-                  // 3. ★ 대기방으로 이동 (뒤로가기 시 홈으로 가도록 pushReplacement)
+                  // 3. 대기방으로 이동 (뒤로가기 시 홈으로 가도록 pushReplacement)
                   Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(
@@ -385,7 +387,7 @@ class _MatchListScreenState extends State<MatchListScreen> {
       ),
       body: Column(
         children: [
-          // ★ 태그 필터 UI (수정됨) ★
+          // ★ 태그 필터 UI ★
           Container(
             color: Colors.black54,
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),

@@ -6,6 +6,9 @@ import 'package:google_sign_in/google_sign_in.dart';
 // ★ 데모 입장을 위해 MainScreen import
 import 'main_screen.dart';
 
+const String WEB_CLIENT_ID = "581600224420-7hnolsn2e6f2vv62d2rlor8hjbh218qa.apps.googleusercontent.com";
+
+// ★ 2. _googleSignIn 초기화 시 WEB_CLIENT_ID를 사용하도록 수정합니다.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -16,9 +19,8 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId: kIsWeb
-        ? "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
-        : null,
+    // kIsWeb 조건 제거, WEB_CLIENT_ID를 직접 사용
+    clientId: WEB_CLIENT_ID,
   );
 
   bool _isLoading = false;

@@ -131,7 +131,7 @@ class _BoardScreenState extends State<BoardScreen> with SingleTickerProviderStat
                     MaterialPageRoute(
                       builder: (_) => PostDetailScreen(
                         postId: post.id,
-                        postData: data,
+                        // postData: data, <--- 이 줄이 제거되었습니다.
                       ),
                     ),
                   );
@@ -300,6 +300,8 @@ class _BoardScreenState extends State<BoardScreen> with SingleTickerProviderStat
                   'writer': user.displayName ?? '익명 팬',
                   'uid': user.uid,
                   'timestamp': FieldValue.serverTimestamp(),
+                  'creatorId': user.uid, // ★ 게시글 작성자의 UID를 저장하여 1:1 채팅에 사용
+                  'creatorName': user.displayName ?? '익명 팬', // ★ 게시글 작성자의 이름을 저장
                 });
                 Navigator.pop(ctx);
               }
