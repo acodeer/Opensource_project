@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart'; // MatchParty, Game 모델을 쓰기 위해 import
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+// import 'home_screen.dart'; // ★ 기존 import 제거
+import '../models/match_model.dart'; // ★ 새 모델 파일 import
 import 'chat_room_screen.dart'; // 채팅방으로 이동하기 위해 import
 
 class MatchWaitingScreen extends StatefulWidget {

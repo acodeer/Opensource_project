@@ -3,49 +3,9 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'match_waiting_screen.dart'; // 대기방 이동을 위해 import
+import '../models/match_model.dart';
+import '../models/user_model.dart';
 
-// --- 데이터 모델 ---
-class Game {
-  final String gameId;
-  final String homeTeam;
-  final String awayTeam;
-  final DateTime date;
-  final String stadium;
-
-  Game({
-    required this.gameId,
-    required this.homeTeam,
-    required this.awayTeam,
-    required this.date,
-    required this.stadium,
-  });
-}
-
-class MatchParty {
-  final String matchId;
-  final String gameId;
-  final String ownerName;
-  final String seatPref;
-  final int maxPlayers;
-  final List<String> participants;
-  final DateTime expiresAt;
-  String status;
-  final List<String> tags;
-
-  MatchParty({
-    required this.matchId,
-    required this.gameId,
-    required this.ownerName,
-    required this.seatPref,
-    required this.maxPlayers,
-    required this.participants,
-    required this.expiresAt,
-    this.status = 'searching',
-    this.tags = const [],
-  });
-}
-
-// --- 샘플 데이터 ---
 List<Game> sampleGames = [
   Game(gameId: 'g1', homeTeam: '두산', awayTeam: 'LG', date: DateTime.now().add(const Duration(hours: 2)), stadium: '잠실'),
   Game(gameId: 'g2', homeTeam: '삼성', awayTeam: '한화', date: DateTime.now().add(const Duration(hours: 2)), stadium: '대구'),
@@ -333,7 +293,7 @@ class _MatchCreateState extends State<MatchCreateScreen> {
                     seatPref: seatPref,
                     maxPlayers: 4,
                     participants: [_nameCtrl.text.isEmpty ? '나(방장)' : _nameCtrl.text],
-                    expiresAt: DateTime.now(),
+                    participantUids: [],
                     tags: _selectedTags,
                   );
 
