@@ -1,4 +1,4 @@
-// lib/models/match_models.dart
+// lib/models/match_model.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -28,6 +28,7 @@ class MatchParty {
   final List<String> participants;
   final List<String> participantUids;
   final List<String> tags;
+  final Timestamp createdAt; // ★ Firestore 정렬을 위해 추가
 
   MatchParty({
     required this.matchId,
@@ -38,6 +39,7 @@ class MatchParty {
     required this.participants,
     required this.participantUids,
     required this.tags,
+    required this.createdAt, // ★ 생성자에 추가
   });
 
   // Firestore DocumentSnapshot으로부터 객체를 생성하는 Factory
@@ -52,6 +54,7 @@ class MatchParty {
       participants: List<String>.from(data['participants'] ?? []),
       participantUids: List<String>.from(data['participantUids'] ?? []),
       tags: List<String>.from(data['tags'] ?? []),
+      createdAt: data['createdAt'] as Timestamp? ?? Timestamp.now(), // ★ 파싱 로직 추가
     );
   }
 }

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'login_screen.dart'; // WEB_CLIENT_ID 및 (가정된) login_screen.dart import
-import '../models/user_model.dart'; // UserModel import (파일명에 맞게 수정)
+import 'login_screen.dart';
+import '../models/user_model.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});

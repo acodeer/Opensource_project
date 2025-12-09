@@ -2,9 +2,11 @@
 
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'match_waiting_screen.dart'; // 대기방 이동을 위해 import
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'match_waiting_screen.dart';
 import '../models/match_model.dart';
-import '../models/user_model.dart';
+import '../models/user_model.dart'; // UserModel은 사용자 정보에 필요
 
 List<Game> sampleGames = [
   Game(gameId: 'g1', homeTeam: '두산', awayTeam: 'LG', date: DateTime.now().add(const Duration(hours: 2)), stadium: '잠실'),
@@ -14,10 +16,9 @@ List<Game> sampleGames = [
   Game(gameId: 'g5', homeTeam: 'SSG', awayTeam: '키움', date: DateTime.now().add(const Duration(hours: 2)), stadium: '인천'),
 ];
 
-final List<MatchParty> localParties = [];
 const List<String> availableTags = ['응원단', '가벼운 술자리', '아이와 동행', '초보 환영', '포토존', '야간 응원'];
 
-// --- ★ 메인 홈 화면 클래스 (MatchGameScheduleScreen으로 이름 변경) ---
+// --- 메인 홈 화면 클래스 ---
 class MatchGameScheduleScreen extends StatefulWidget {
   const MatchGameScheduleScreen({super.key});
 
@@ -27,6 +28,9 @@ class MatchGameScheduleScreen extends StatefulWidget {
 
 class _MatchGameScheduleScreenState extends State<MatchGameScheduleScreen> {
   late List<Game> _games;
+  final _firestore = FirebaseFirestore.instance;
+  final _auth = FirebaseAuth.instance;
+
 
   @override
   void initState() {
@@ -38,11 +42,73 @@ class _MatchGameScheduleScreenState extends State<MatchGameScheduleScreen> {
     return '${dt.month}/${dt.day} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
+  // 사용자 참여 중인 파티를 찾아 MatchParty 객체를 반환하는 함수
+  Future<MatchParty?> _findActiveParty() async {
+    final user = _auth.currentUser;
+    if (user == null) return null;
+
+    try {
+      final snapshot = await _firestore.collection('match_parties')
+          .where('participantUids', arrayContains: user.uid)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        return MatchParty.fromFirestore(snapshot.docs.first);
+      }
+      return null;
+    } catch (e) {
+      print("Active party check failed: $e");
+      return null;
+    }
+  }
+
+
   // 경기 카드 클릭 시 바텀 시트 표시
-  void _onGameTap(Game game) {
+  void _onGameTap(Game game) async {
+    // 1. 로그인 체크
+    final user = _auth.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('로그인이 필요합니다.')));
+      return;
+    }
+
+    // 2. 이미 참여 중인 파티가 있는지 확인
+    final activeParty = await _findActiveParty();
+
+    if (activeParty != null) {
+      // 3. 이미 참여 중이면 해당 파티의 대기방으로 즉시 이동
+      if (context.mounted) {
+        // ★ 오류 수정: duration을 SnackBar의 속성으로 올바르게 지정
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('이미 참여 중인 파티가 있습니다. 해당 파티로 이동합니다.'),
+              duration: Duration(seconds: 2),
+            )
+        );
+
+        final activeGame = _games.firstWhere(
+                (g) => g.gameId == activeParty.gameId,
+            orElse: () => game
+        );
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MatchWaitingScreen(
+              partyId: activeParty.matchId,
+              game: activeGame,
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    // 4. 참여 중인 파티가 없으면 기존 로직대로 Bottom Sheet 표시
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.grey[900], // 다크 테마
+      backgroundColor: Colors.grey[900],
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -193,19 +259,114 @@ class MatchCreateScreen extends StatefulWidget {
 }
 
 class _MatchCreateState extends State<MatchCreateScreen> {
+  final _auth = FirebaseAuth.instance;
+  final _firestore = FirebaseFirestore.instance; // ★ Firestore 인스턴스
+
   String seatPref = '상관없음';
   final _nameCtrl = TextEditingController();
   final List<String> _selectedTags = [];
+
+  @override
+  void initState() {
+    super.initState();
+    // 로그인된 사용자 이름으로 닉네임 필드 초기화
+    _nameCtrl.text = _auth.currentUser?.displayName ?? '나(방장)';
+  }
 
   void _toggleTag(String tag) {
     setState(() {
       if (_selectedTags.contains(tag)) {
         _selectedTags.remove(tag);
-      } else {
+      } else if (_selectedTags.length < 3) {
         _selectedTags.add(tag);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('태그는 최대 3개까지 선택할 수 있습니다.')),
+        );
       }
     });
   }
+
+  // ★ 파티 생성 로직 (Firestore)
+  void _createParty() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('로그인이 필요합니다.')));
+      return;
+    }
+
+    // 1. 최종 중복 참여 확인 (다른 파티에 이미 참여 중이면 생성 불가)
+    try {
+      final existingPartySnapshot = await _firestore.collection('match_parties')
+          .where('participantUids', arrayContains: user.uid)
+          .limit(1)
+          .get();
+
+      if (existingPartySnapshot.docs.isNotEmpty) {
+        if (mounted) {
+          // ★ 오류 수정: duration을 SnackBar의 속성으로 올바르게 지정
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('이미 다른 파티에 참여 중입니다. 먼저 해당 파티를 나가주세요.'),
+                duration: Duration(seconds: 3),
+              )
+          );
+        }
+        // 이미 참여 중인 파티가 있다면, 생성하지 않고 대기방으로 이동
+        final activePartyId = existingPartySnapshot.docs.first.id;
+        if (mounted) {
+          final MatchParty activeParty = MatchParty.fromFirestore(existingPartySnapshot.docs.first);
+
+          final activeGame = sampleGames.firstWhere(
+                  (g) => g.gameId == activeParty.gameId,
+              orElse: () => widget.game // 오류 방지
+          );
+
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => MatchWaitingScreen(partyId: activePartyId, game: activeGame),
+            ),
+          );
+        }
+        return;
+      }
+
+      // 2. Firestore에 새 파티 문서 추가
+      final ownerName = _nameCtrl.text.trim().isEmpty ? (user.displayName ?? '익명 방장') : _nameCtrl.text.trim();
+      final partyDocRef = await _firestore.collection('match_parties').add({
+        'gameId': widget.game.gameId,
+        'ownerUid': user.uid,
+        'ownerName': ownerName,
+        'seatPref': seatPref,
+        'maxPlayers': 4, // 고정값 사용
+        'participants': [ownerName], // 방장 이름 포함
+        'participantUids': [user.uid], // 방장 UID 포함
+        'tags': _selectedTags,
+        'createdAt': FieldValue.serverTimestamp(),
+        'status': 'searching',
+      });
+
+      // 3. 대기방으로 이동
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('파티가 생성되었습니다!')));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MatchWaitingScreen(
+              partyId: partyDocRef.id, // 생성된 문서 ID 전달
+              game: widget.game,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('파티 생성 실패: $e')));
+      }
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -248,7 +409,7 @@ class _MatchCreateState extends State<MatchCreateScreen> {
             ),
             const SizedBox(height: 30),
 
-            // ★ 태그 선택 UI ★
+            // 태그 선택 UI
             const Text('태그 선택 (최대 3개)', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             Wrap(
@@ -284,30 +445,7 @@ class _MatchCreateState extends State<MatchCreateScreen> {
               height: 50,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[900]),
-                onPressed: () {
-                  // 1. 파티 객체 생성
-                  final newParty = MatchParty(
-                    matchId: DateTime.now().toString(),
-                    gameId: widget.game.gameId,
-                    ownerName: _nameCtrl.text.isEmpty ? '나(방장)' : _nameCtrl.text,
-                    seatPref: seatPref,
-                    maxPlayers: 4,
-                    participants: [_nameCtrl.text.isEmpty ? '나(방장)' : _nameCtrl.text],
-                    participantUids: [],
-                    tags: _selectedTags,
-                  );
-
-                  // 2. 로컬 리스트에 추가
-                  localParties.add(newParty);
-
-                  // 3. 대기방으로 이동 (뒤로가기 시 홈으로 가도록 pushReplacement)
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => MatchWaitingScreen(party: newParty, game: widget.game),
-                    ),
-                  );
-                },
+                onPressed: _createParty, // ★ _createParty 함수 연결
                 child: const Text('생성하기', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
@@ -327,17 +465,109 @@ class MatchListScreen extends StatefulWidget {
 }
 
 class _MatchListScreenState extends State<MatchListScreen> {
+  final _firestore = FirebaseFirestore.instance;
+  final _auth = FirebaseAuth.instance;
   String? activeTagFilter;
+
+  // ★ 파티 참여 로직 (Firestore 업데이트)
+  void _joinParty(MatchParty party) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    // 1. 이미 참여 중인지 확인 (대상 파티 내)
+    if (party.participantUids.contains(user.uid)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('이미 참여 중인 파티입니다. 대기방으로 이동합니다.')));
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MatchWaitingScreen(partyId: party.matchId, game: widget.game),
+          ),
+        );
+      }
+      return;
+    }
+
+    // 2. 최종 중복 참여 확인 (다른 파티 포함)
+    try {
+      final existingPartySnapshot = await _firestore.collection('match_parties')
+          .where('participantUids', arrayContains: user.uid)
+          .limit(1)
+          .get();
+
+      if (existingPartySnapshot.docs.isNotEmpty) {
+        final activePartyId = existingPartySnapshot.docs.first.id;
+        // 다른 파티에 참여 중이라면 (단, 현재 참여하려는 파티가 아닌 경우)
+        if (activePartyId != party.matchId) {
+          if (mounted) {
+            // ★ 오류 수정: duration을 SnackBar의 속성으로 올바르게 지정
+            ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('이미 다른 파티에 참여 중이므로 매칭할 수 없습니다. 해당 파티로 이동합니다.'),
+                  duration: Duration(seconds: 3),
+                )
+            );
+
+            final MatchParty activeParty = MatchParty.fromFirestore(existingPartySnapshot.docs.first);
+            final activeGame = sampleGames.firstWhere(
+                    (g) => g.gameId == activeParty.gameId,
+                orElse: () => widget.game
+            );
+
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => MatchWaitingScreen(partyId: activePartyId, game: activeGame),
+              ),
+            );
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      print("Duplication check failed: $e");
+      // 오류 발생 시 경고만 주고 로직 진행 (최소한의 방어)
+    }
+
+    // 3. 인원 초과 확인
+    if (party.participants.length >= party.maxPlayers) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('이미 인원이 가득 찼습니다.')));
+      }
+      return;
+    }
+
+    // 4. 파티 참여 로직
+    try {
+      final userDisplayName = user.displayName ?? '익명 참여자';
+      final partyRef = _firestore.collection('match_parties').doc(party.matchId);
+
+      // participants와 participantUids 배열에 사용자 추가
+      await partyRef.update({
+        'participants': FieldValue.arrayUnion([userDisplayName]),
+        'participantUids': FieldValue.arrayUnion([user.uid]),
+      });
+
+      // 대기방으로 이동
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('파티에 참여했습니다!')));
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MatchWaitingScreen(partyId: party.matchId, game: widget.game),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('파티 참여 실패: $e')));
+      }
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
-    // 태그 필터링 로직
-    final parties = localParties.where((p) {
-      final isSameGame = p.gameId == widget.game.gameId;
-      final hasTag = activeTagFilter == null || activeTagFilter == '전체' || p.tags.contains(activeTagFilter);
-      return isSameGame && hasTag;
-    }).toList();
-
     return Scaffold(
       backgroundColor: Colors.grey[900],
       appBar: AppBar(
@@ -347,7 +577,7 @@ class _MatchListScreenState extends State<MatchListScreen> {
       ),
       body: Column(
         children: [
-          // ★ 태그 필터 UI ★
+          // ★ 태그 필터 UI (기존 로직 유지)
           Container(
             color: Colors.black54,
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
@@ -391,75 +621,101 @@ class _MatchListScreenState extends State<MatchListScreen> {
             ),
           ),
 
-          // 파티 리스트
+          // ★ 파티 리스트 (StreamBuilder로 Firestore 연동)
           Expanded(
-            child: parties.isEmpty
-                ? const Center(
-              child: Text(
-                '조건에 맞는 파티가 없습니다.\n직접 파티를 만들어보세요!',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 16),
-              ),
-            )
-                : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: parties.length,
-              itemBuilder: (context, index) {
-                final party = parties[index];
-                return Card(
-                  color: Colors.grey[800],
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: InkWell(
-                    onTap: () {
-                      // ★ 클릭 시 대기방으로 이동
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => MatchWaitingScreen(party: party, game: widget.game),
-                        ),
-                      );
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: StreamBuilder<QuerySnapshot>(
+              stream: _firestore
+                  .collection('match_parties')
+                  .where('gameId', isEqualTo: widget.game.gameId) // 해당 경기만 필터링
+                  .orderBy('createdAt', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('파티 로딩 오류: ${snapshot.error}', style: TextStyle(color: Colors.grey)));
+                }
+
+                // 1. 데이터 파싱
+                final allParties = snapshot.data!.docs.map((doc) => MatchParty.fromFirestore(doc)).toList();
+
+                // 2. 태그 필터링 (클라이언트 단에서 필터링)
+                final filteredParties = allParties.where((p) {
+                  if (activeTagFilter == null || activeTagFilter == '전체') return true;
+                  return p.tags.contains(activeTagFilter);
+                }).toList();
+
+                // 3. 필터링된 목록이 비어있는 경우
+                if (filteredParties.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      '조건에 맞는 파티가 없습니다.\n직접 파티를 만들어보세요!',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                  );
+                }
+
+                // 4. 리스트 표시
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: filteredParties.length,
+                  itemBuilder: (context, index) {
+                    final party = filteredParties[index];
+                    final isFull = party.participants.length >= party.maxPlayers;
+
+                    return Card(
+                      color: isFull ? Colors.grey[900] : Colors.grey[800],
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: InkWell(
+                        onTap: isFull ? null : () => _joinParty(party), // ★ _joinParty 함수 연결
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('${party.ownerName}님의 파티', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue[900],
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  '${party.participants.length}/${party.maxPlayers}',
-                                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                                ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                      '${party.ownerName}님의 파티',
+                                      style: TextStyle(color: isFull ? Colors.grey : Colors.white, fontWeight: FontWeight.bold, fontSize: 16)
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: isFull ? Colors.red[700] : Colors.blue[900],
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      isFull ? '마감' : '${party.participants.length}/${party.maxPlayers}',
+                                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text('좌석: ${party.seatPref}', style: const TextStyle(color: Colors.grey)),
+                              const SizedBox(height: 8),
+                              // 태그 뱃지
+                              Wrap(
+                                spacing: 4,
+                                children: party.tags.map((tag) => Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[700],
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(tag, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                                )).toList(),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          Text('좌석: ${party.seatPref}', style: const TextStyle(color: Colors.grey)),
-                          const SizedBox(height: 8),
-                          // 태그 뱃지
-                          Wrap(
-                            spacing: 4,
-                            children: party.tags.map((tag) => Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[700],
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(tag, style: const TextStyle(color: Colors.white70, fontSize: 11)),
-                            )).toList(),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 );
               },
             ),
