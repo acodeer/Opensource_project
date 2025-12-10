@@ -100203,7 +100203,7 @@ var s=A.X($.aYh(),t.Tt)
 B.b.P(s,$.aMN())
 this.f=s},
 T1(a){var s=t.N
-s=A.a5(["\ub450\uc0b0","doosan.png","\ud55c\ud654","eagles.png","\ub86f\ub370","giants.png","\ud0a4\uc6c0","kiwoom.png","KIA","kn.png","KT","kt.png","LG","twins.png","NC","nc.png","\uc0bc\uc131","samsung.png","SSG","ssg.png","\ub098\ub214","kbo.png","\ub4dc\ub9bc","kbo.png"],s,s).h(0,a)
+s=A.a5(["\ub450\uc0b0","assets/doosan.png","\ud55c\ud654","assets/eagles.png","\ub86f\ub370","assets/giants.png","\ud0a4\uc6c0","assets/kiwoom.png","KIA","assets/kn.png","KT","assets/kt.png","LG","assets/twins.png","NC","assets/nc.png","\uc0bc\uc131","assets/samsung.png","SSG","assets/ssg.png","\ub098\ub214","assets/kbo.png","\ub4dc\ub9bc","assets/kbo.png"],s,s).h(0,a)
 return s==null?"kbo.png":s},
 al0(a){this.a1(new A.azl(this,a))},
 vI(){var s=0,r=A.w(t.H)
