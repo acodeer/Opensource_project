@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final String postId;
@@ -23,6 +23,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   // 게시글 수정을 위한 문서 스냅샷 (나중에 로드됨)
   DocumentSnapshot<Map<String, dynamic>>? _postDoc;
 
+  // YoutubePlayerController는 패키지가 바뀌어도 이름은 동일합니다.
   YoutubePlayerController? _ytController;
   String? _rawYoutubeUrl;
 
@@ -39,7 +40,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
   @override
   void dispose() {
-    _ytController?.close();
+    // dispose() 메소드를 호출합니다.
+    _ytController?.dispose();
     _commentCtrl.dispose();
     super.dispose();
   }
@@ -84,18 +86,18 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     }
   }
 
+  // ★ _initYoutube 함수에서 'disableDragSurfaces' 파라미터를 제거했습니다.
   void _initYoutube(String url) {
     final videoId = _extractVideoId(url);
     if (videoId == null) return;
 
-    _ytController = YoutubePlayerController.fromVideoId(
-      videoId: videoId,
-      autoPlay: false,
-      params: const YoutubePlayerParams(
-        showControls: true,
-        showFullscreenButton: true,
-        strictRelatedVideos: true,
-        enableCaption: false,
+    // YoutubePlayerController 생성자 사용 (fromVideoId 대신)
+    _ytController = YoutubePlayerController(
+      initialVideoId: videoId, // initialVideoId 사용
+      flags: const YoutubePlayerFlags( // YoutubePlayerParams 대신 YoutubePlayerFlags 사용
+        autoPlay: false,
+        mute: false,
+        // disableDragSurfaces: true, // v9.1.3 버전에는 없는 파라미터이므로 제거했습니다.
       ),
     );
   }
@@ -110,6 +112,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final uri = Uri.tryParse(trimmed);
     if (uri == null) return null;
 
+    // youtube_player_flutter 패키지는 .convertUrlToId() 메소드를 제공하지만,
+    // 기존의 커스텀 추출 로직을 그대로 사용하도록 유지합니다.
     if (uri.host.contains('youtu.be')) {
       if (uri.pathSegments.isNotEmpty) return uri.pathSegments.first;
     }
