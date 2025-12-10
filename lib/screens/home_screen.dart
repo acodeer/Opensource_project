@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'match_waiting_screen.dart';
 import '../models/match_model.dart';
 import '../models/user_model.dart'; // UserModel은 사용자 정보에 필요
+import 'webview_screen.dart';
 
 List<Game> sampleGames = [
   Game(gameId: 'g1', homeTeam: '두산', awayTeam: 'LG', date: DateTime.now().add(const Duration(hours: 2)), stadium: '잠실'),
@@ -79,7 +80,7 @@ class _MatchGameScheduleScreenState extends State<MatchGameScheduleScreen> {
     if (activeParty != null) {
       // 3. 이미 참여 중이면 해당 파티의 대기방으로 즉시 이동
       if (context.mounted) {
-        // ★ 오류 수정: duration을 SnackBar의 속성으로 올바르게 지정
+        // 오류 수정 완료된 코드 사용
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('이미 참여 중인 파티가 있습니다. 해당 파티로 이동합니다.'),
@@ -242,6 +243,47 @@ class _MatchGameScheduleScreenState extends State<MatchGameScheduleScreen> {
                   ),
                 );
               },
+            ),
+          ),
+
+          // ★ 웹뷰 링크 UI 추가 (Expanded 밖, Column의 마지막 부분)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+            child: Card(
+              color: Colors.grey[850],
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              child: InkWell(
+                onTap: () {
+                  // 웹뷰 화면으로 이동
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const WebViewScreen(
+                        title: 'KBO 공식 기록 / 일정',
+                        url: 'https://www.koreabaseball.com/record/schedule.do', // KBO 공식 사이트 예시
+                      ),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(10),
+                child: const Padding(
+                  padding: EdgeInsets.all(12.0),
+                  child: Row(
+                    children: [
+                      Icon(Icons.link, color: Colors.blueAccent),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'KBO 공식 기록 / 실시간 데이터 확인',
+                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      Icon(Icons.chevron_right, color: Colors.grey),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ],

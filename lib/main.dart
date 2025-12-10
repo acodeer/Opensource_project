@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
-// import 'package:flutter/foundation.dart'; // kDebugMode를 사용하기 위해 추가 - 이 import는 더 이상 필요 없습니다.
+// 기존에 오류를 유발했던 웹뷰 관련 import 및 platform.dart import는 모두 제거되었습니다.
 
 // 화면 파일들 import
 import 'screens/login_screen.dart';
@@ -12,6 +12,9 @@ import 'screens/main_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ★ 웹뷰 플랫폼 등록 로직 제거됨: Android 빌드 시 웹 코드를 참조하지 않습니다.
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -35,7 +38,6 @@ class MyApp extends StatelessWidget {
           foregroundColor: Colors.white,
         ),
       ),
-      // 💡 [수정] kDebugMode 시 로그인 상태와 관계없이 MainScreen으로 바로 이동하는 로직을 제거했습니다.
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
