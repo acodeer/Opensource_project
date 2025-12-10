@@ -1,16 +1,1 @@
-# flc_project
-
-A new Flutter project.
-
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+1 . 갈래말래는 KBO 야구 직관을 좋아하는 팬들을 위한 소셜 매칭 및 커뮤니티 플랫폼입니다. 혼자 야구장에 가는 팬들이 실시간으로 매칭 파티를 찾거나 생성하여 함께 직관하고 소통할 수 있도록 돕습니다.

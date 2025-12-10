@@ -59,6 +59,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       // 🔹 예전 글에서 내용에만 링크를 적어둔 경우, 내용에서 URL을 추출
       if (youtubeUrl == null || youtubeUrl.trim().isEmpty) {
         final content = (data['content'] ?? '') as String;
+        // URL 추출 정규식
         final match =
         RegExp(r'(https?:\/\/[^\s]+)').firstMatch(content.trim());
         if (match != null) {
@@ -68,6 +69,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
 
       _rawYoutubeUrl = youtubeUrl;
 
+      // ★ 로드 후 바로 초기화 로직 수행
+      _ytController?.close(); // 기존 컨트롤러가 있다면 닫기
+      _ytController = null;
       if (youtubeUrl != null && youtubeUrl.trim().isNotEmpty) {
         _initYoutube(youtubeUrl);
       }
@@ -94,12 +98,15 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       return;
     }
 
+    // ★ YoutubePlayerController 초기화
     _ytController = YoutubePlayerController.fromVideoId(
       videoId: videoId,
       autoPlay: false,
       params: const YoutubePlayerParams(
         showControls: true,
         showFullscreenButton: true,
+        strictRelatedVideos: true, // 관련 영상 표시 제한 (youtube_player_iframe)
+        enableCaption: false,
       ),
     );
   }
@@ -108,7 +115,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   String? _extractVideoId(String url) {
     final trimmed = url.trim();
 
-    // 그냥 ID만 넣은 경우 (11자리)
+    // 1. 그냥 ID만 넣은 경우 (11자리)
     if (!trimmed.startsWith('http')) {
       if (trimmed.length == 11 &&
           RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(trimmed)) {
@@ -119,21 +126,21 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final uri = Uri.tryParse(trimmed);
     if (uri == null) return null;
 
-    // youtu.be/VIDEOID
+    // 2. youtu.be/VIDEOID
     if (uri.host.contains('youtu.be')) {
       if (uri.pathSegments.isNotEmpty) {
         return uri.pathSegments.first;
       }
     }
 
-    // youtube.com/watch?v=VIDEOID
+    // 3. youtube.com/watch?v=VIDEOID
     if (uri.host.contains('youtube.com')) {
       final v = uri.queryParameters['v'];
       if (v != null && v.isNotEmpty) {
         return v;
       }
 
-      // shorts 링크: /shorts/VIDEOID
+      // 4. shorts 링크: /shorts/VIDEOID
       final segments = uri.pathSegments;
       if (segments.isNotEmpty && segments.first == 'shorts' && segments.length >= 2) {
         return segments[1];
@@ -458,6 +465,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                 children: [
                   _buildPostHeader(),
                   const SizedBox(height: 16),
+                  // ★ 유튜브 플레이어 빌드 로직
                   if (_ytController != null) _buildYoutubePlayer(),
                   if (_rawYoutubeUrl != null &&
                       (_ytController == null))
@@ -535,6 +543,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     );
   }
 
+  // ★ 누락된 메서드 복구 1: 유튜브 로드 실패 시 링크 표시
   Widget _buildYoutubeFallbackLink() {
     return GestureDetector(
       onTap: () {
@@ -569,6 +578,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     );
   }
 
+  // ★ 누락된 메서드 복구 2: 게시글 본문 표시
   Widget _buildPostContent() {
     final data = _postDoc!.data()!;
     return Text(
@@ -576,6 +586,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
     );
   }
+
 
   Widget _buildCommentsList(User? user) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
