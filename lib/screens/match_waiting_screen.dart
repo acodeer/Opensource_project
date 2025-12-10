@@ -1,18 +1,19 @@
 // lib/screens/match_waiting_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // ★ Firestore 추가
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/match_model.dart'; // ★ 모델 import
+import '../models/match_model.dart';
 import 'chat_room_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class MatchWaitingScreen extends StatefulWidget {
-  final String partyId; // ★ 파티 ID로 변경
+  final String partyId; // 파티 ID
   final Game game;        // 경기 정보
 
   const MatchWaitingScreen({
     super.key,
-    required this.partyId, // ★ ID로 변경
+    required this.partyId,
     required this.game,
   });
 
@@ -22,23 +23,106 @@ class MatchWaitingScreen extends StatefulWidget {
 
 class _MatchWaitingScreenState extends State<MatchWaitingScreen> {
   final _firestore = FirebaseFirestore.instance;
+  final _auth = FirebaseAuth.instance;
 
-  void _joinChatRoom(MatchParty party) {
-    // 채팅방으로 이동
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ChatRoomScreen(
-          chatRoomId: party.matchId, // 파티 ID를 채팅방 ID로 사용
-          chatRoomTitle: "${widget.game.homeTeam} vs ${widget.game.awayTeam} 팟",
-        ),
+  void _joinChatRoom(MatchParty party) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('로그인이 필요합니다.')));
+      }
+      return;
+    }
+    final String chatRoomId = party.matchId;
+    final String chatRoomTitle = "${widget.game.homeTeam} vs ${widget.game.awayTeam} 팟";
+
+    // Firestore 참조
+    final chatRoomsRef = _firestore.collection('chat_rooms');
+
+    try {
+      DocumentSnapshot chatDoc = await chatRoomsRef.doc(chatRoomId).get();
+
+      // 1. 채팅방이 없는 경우 새로 생성합니다.
+      if (!chatDoc.exists) {
+        // 파티 참여자 UID/이름 목록을 채팅방 정보로 변환
+        final Map<String, String> userNames = {};
+        for (int i = 0; i < party.participantUids.length; i++) {
+          userNames[party.participantUids[i]] = party.participants[i];
+        }
+
+        await chatRoomsRef.doc(chatRoomId).set({
+          'chatRoomId': chatRoomId,
+          'users': party.participantUids, // 파티의 모든 참여자 UID
+          'userNames': userNames, // UID와 이름 매핑
+          'lastMessage': '파티 채팅방이 개설되었습니다.',
+          'lastMessageTime': Timestamp.now(),
+          'relatedGameId': party.gameId, // 파티방임을 표시
+        });
+      }
+      // 2. 채팅방 화면으로 이동합니다.
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatRoomScreen(
+              chatRoomId: chatRoomId,
+              chatRoomTitle: chatRoomTitle,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('채팅방 입장 실패: $e')));
+      }
+    }
+  }
+
+  // ★ 파티 나가기 로직 추가
+  void _leaveParty(MatchParty party, String currentUserId, String currentUserName) async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('파티 나가기'),
+        content: const Text('파티를 나가시겠습니까? 다시 참여하려면 파티 목록에서 찾아야 합니다.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('취소')),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('나가기', style: TextStyle(color: Colors.red))),
+        ],
       ),
     );
+
+    if (confirm == true) {
+      try {
+        final partyRef = _firestore.collection('match_parties').doc(party.matchId);
+
+        // Firestore Update: 이름과 UID 배열에서 사용자 정보 제거
+        await partyRef.update({
+          'participants': FieldValue.arrayRemove([currentUserName]), // 이름 제거
+          'participantUids': FieldValue.arrayRemove([currentUserId]), // UID 제거
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('파티에서 나갔습니다.')));
+          // 홈 화면으로 돌아가기 (대기방 화면 닫기)
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('파티 나가기 실패: $e')));
+        }
+      }
+    }
   }
+
 
   @override
   Widget build(BuildContext context) {
-    // ★ Firestore StreamBuilder로 파티 문서 구독
+    // 현재 로그인된 사용자 정보
+    final currentUserId = _auth.currentUser?.uid;
+    final currentUserName = _auth.currentUser?.displayName ?? '익명';
+
+    // Firestore StreamBuilder로 파티 문서 구독
     return StreamBuilder<DocumentSnapshot>(
       stream: _firestore.collection('match_parties').doc(widget.partyId).snapshots(),
       builder: (context, snapshot) {
@@ -63,6 +147,10 @@ class _MatchWaitingScreenState extends State<MatchWaitingScreen> {
         int currentMemberCount = party.participants.length;
         int maxMemberCount = party.maxPlayers;
         bool isFull = currentMemberCount >= maxMemberCount;
+
+        // 3. 현재 사용자가 파티 참여자인지 확인
+        final isParticipant = party.participantUids.contains(currentUserId);
+
 
         return Scaffold(
           backgroundColor: Colors.grey[900],
@@ -192,15 +280,26 @@ class _MatchWaitingScreenState extends State<MatchWaitingScreen> {
                       "채팅방 입장하기",
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
-                    onPressed: () => _joinChatRoom(party), // ★ 파티 객체를 전달
+                    onPressed: () => _joinChatRoom(party),
                   ),
                 ),
                 const SizedBox(height: 10),
+
+                // ★ 5. 파티 나가기/목록으로 돌아가기 버튼
                 TextButton(
                   onPressed: () {
-                    Navigator.pop(context); // 목록으로 돌아가기
+                    // 참여자인 경우에만 _leaveParty 호출
+                    if (isParticipant && currentUserId != null) {
+                      _leaveParty(party, currentUserId, currentUserName);
+                    } else {
+                      // 참여자가 아니거나, 나가는 로직 실패 시 그냥 pop
+                      Navigator.pop(context);
+                    }
                   },
-                  child: const Text("목록으로 돌아가기", style: TextStyle(color: Colors.grey)),
+                  child: Text(
+                    isParticipant ? "파티 나가기" : "목록으로 돌아가기",
+                    style: TextStyle(color: isParticipant ? Colors.redAccent : Colors.grey),
+                  ),
                 ),
               ],
             ),
