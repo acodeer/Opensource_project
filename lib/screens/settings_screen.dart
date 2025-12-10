@@ -246,6 +246,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     final userModel = _userModel;
 
+    final ImageProvider<Object>? backgroundImage = _profileImage != null
+        ? FileImage(_profileImage!)
+        : (userModel?.photoURL != null
+        ? NetworkImage(userModel!.photoURL!) as ImageProvider<Object>? // NetworkImage를 ImageProvider로 명시적 캐스팅
+        : null);
+
     return Scaffold(
         appBar: AppBar(
           title: const Text('설정'),
@@ -266,11 +272,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     CircleAvatar(
                       radius: 40,
                       backgroundColor: Colors.white,
-                      backgroundImage: _profileImage != null
-                          ? FileImage(_profileImage!)
-                          : (userModel?.photoURL != null
-                          ? NetworkImage(userModel!.photoURL!)
-                          : null),
+                      // ★ 수정된 backgroundImage 변수 사용
+                      backgroundImage: backgroundImage,
                       child: (_profileImage == null && userModel?.photoURL == null)
                           ? const Icon(Icons.person, size: 50, color: Colors.grey)
                           : null,
