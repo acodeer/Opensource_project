@@ -41,18 +41,18 @@ class _MatchGameScheduleScreenState extends State<MatchGameScheduleScreen> {
   // 팀 로고 경로 매핑
   String _getTeamLogo(String teamName) {
     Map<String, String> teamLogos = {
-      '두산': 'doosan.png',
-      '한화': 'eagles.png',
-      '롯데': 'giants.png',
-      '키움': 'kiwoom.png',
-      'KIA': 'kn.png',
-      'KT': 'kt.png',
-      'LG': 'twins.png',
-      'NC': 'nc.png',
-      '삼성': 'samsung.png',
-      'SSG': 'ssg.png',
-      '나눔': 'kbo.png',
-      '드림': 'kbo.png',
+      '두산': 'assets/doosan.png',
+      '한화': 'assets/eagles.png',
+      '롯데': 'assets/giants.png',
+      '키움': 'assets/kiwoom.png',
+      'KIA': 'assets/kn.png',
+      'KT': 'assets/kt.png',
+      'LG': 'assets/twins.png',
+      'NC': 'assets/nc.png',
+      '삼성': 'assets/samsung.png',
+      'SSG': 'assets/ssg.png',
+      '나눔': 'assets/kbo.png',
+      '드림': 'assets/kbo.png',
     };
     return teamLogos[teamName] ?? 'kbo.png';
   }
