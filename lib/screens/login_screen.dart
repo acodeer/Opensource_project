@@ -1,14 +1,15 @@
+// lib/screens/login_screen.dart
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-// ★ 데모 입장을 위해 MainScreen import
+// ★ MainScreen import는 Google Sign-In 성공 시 필요하므로 유지합니다.
 import 'main_screen.dart';
 
 const String WEB_CLIENT_ID = "581600224420-7hnolsn2e6f2vv62d2rlor8hjbh218qa.apps.googleusercontent.com";
 
-// ★ 2. _googleSignIn 초기화 시 WEB_CLIENT_ID를 사용하도록 수정합니다.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -19,7 +20,6 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    // kIsWeb 조건 제거, WEB_CLIENT_ID를 직접 사용
     clientId: WEB_CLIENT_ID,
   );
 
@@ -101,25 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
             const SizedBox(height: 20),
 
-            // 2. ★ 추가된 데모용 입장 버튼 ★
-            TextButton(
-              onPressed: () {
-                // 로그인 로직 없이 강제로 메인 화면으로 이동
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const MainScreen()),
-                );
-              },
-              child: const Text(
-                '게스트로 입장하기 (데모용) >',
-                style: TextStyle(
-                  color: Colors.white54,
-                  fontSize: 14,
-                  decoration: TextDecoration.underline,
-                  decorationColor: Colors.white54,
-                ),
-              ),
-            ),
+            // ★ 데모용 입장 버튼 영역이 완전히 제거되었습니다.
           ],
         ),
       ),
