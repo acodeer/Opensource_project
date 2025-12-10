@@ -5,10 +5,12 @@ import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final String postId;
+  final Map<String, dynamic> postData; // ★ BoardScreen에서 넘겨주는 데이터
 
   const PostDetailScreen({
     super.key,
     required this.postId,
+    required this.postData, // ★ 필수 인자로 추가
   });
 
   @override
@@ -18,8 +20,8 @@ class PostDetailScreen extends StatefulWidget {
 class _PostDetailScreenState extends State<PostDetailScreen> {
   final _auth = FirebaseAuth.instance;
 
+  // 게시글 수정을 위한 문서 스냅샷 (나중에 로드됨)
   DocumentSnapshot<Map<String, dynamic>>? _postDoc;
-  bool _isLoading = true;
 
   YoutubePlayerController? _ytController;
   String? _rawYoutubeUrl;
@@ -29,7 +31,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _loadPost();
+    // 1. 초기 데이터로 유튜브 설정 (화면 딜레이 없음)
+    _initDataFromArgs();
+    // 2. 최신 데이터 백그라운드 로드 (권한 확인용)
+    _loadPostRef();
   }
 
   @override
@@ -39,141 +44,106 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     super.dispose();
   }
 
-  Future<void> _loadPost() async {
+  // 전달받은 postData로 초기화
+  void _initDataFromArgs() {
+    final data = widget.postData;
+    String? youtubeUrl = data['youtubeUrl'];
+
+    // 내용에서 유튜브 링크 추출 시도
+    if (youtubeUrl == null || youtubeUrl.trim().isEmpty) {
+      final content = (data['content'] ?? '') as String;
+      final match = RegExp(r'(https?:\/\/[^\s]+)').firstMatch(content.trim());
+      if (match != null) {
+        youtubeUrl = match.group(0);
+      }
+    }
+
+    _rawYoutubeUrl = youtubeUrl;
+    if (youtubeUrl != null && youtubeUrl.trim().isNotEmpty) {
+      _initYoutube(youtubeUrl);
+    }
+  }
+
+  // Firestore에서 최신 문서 가져오기 (수정/삭제 권한 확인용)
+  Future<void> _loadPostRef() async {
     try {
       final doc = await FirebaseFirestore.instance
           .collection('posts')
           .doc(widget.postId)
           .get();
 
-      if (!doc.exists) {
-        setState(() {
-          _isLoading = false;
-        });
-        return;
-      }
-
-      final data = doc.data()!;
-      String? youtubeUrl = data['youtubeUrl'];
-
-      // 🔹 예전 글에서 내용에만 링크를 적어둔 경우, 내용에서 URL을 추출
-      if (youtubeUrl == null || youtubeUrl.trim().isEmpty) {
-        final content = (data['content'] ?? '') as String;
-        // URL 추출 정규식
-        final match =
-        RegExp(r'(https?:\/\/[^\s]+)').firstMatch(content.trim());
-        if (match != null) {
-          youtubeUrl = match.group(0);
+      if (doc.exists) {
+        if (mounted) {
+          setState(() {
+            _postDoc = doc;
+          });
         }
       }
-
-      _rawYoutubeUrl = youtubeUrl;
-
-      // ★ 로드 후 바로 초기화 로직 수행
-      _ytController?.close(); // 기존 컨트롤러가 있다면 닫기
-      _ytController = null;
-      if (youtubeUrl != null && youtubeUrl.trim().isNotEmpty) {
-        _initYoutube(youtubeUrl);
-      }
-
-      setState(() {
-        _postDoc = doc;
-        _isLoading = false;
-      });
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('게시글을 불러오지 못했습니다: $e')),
-        );
-      }
+      print("게시글 로드 오류: $e");
     }
   }
 
   void _initYoutube(String url) {
     final videoId = _extractVideoId(url);
-    if (videoId == null) {
-      return;
-    }
+    if (videoId == null) return;
 
-    // ★ YoutubePlayerController 초기화
     _ytController = YoutubePlayerController.fromVideoId(
       videoId: videoId,
       autoPlay: false,
       params: const YoutubePlayerParams(
         showControls: true,
         showFullscreenButton: true,
-        strictRelatedVideos: true, // 관련 영상 표시 제한 (youtube_player_iframe)
+        strictRelatedVideos: true,
         enableCaption: false,
       ),
     );
   }
 
-  /// 🔹 유튜브 링크에서 videoId만 뽑는 함수
   String? _extractVideoId(String url) {
     final trimmed = url.trim();
-
-    // 1. 그냥 ID만 넣은 경우 (11자리)
     if (!trimmed.startsWith('http')) {
-      if (trimmed.length == 11 &&
-          RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(trimmed)) {
+      if (trimmed.length == 11 && RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(trimmed)) {
         return trimmed;
       }
     }
-
     final uri = Uri.tryParse(trimmed);
     if (uri == null) return null;
 
-    // 2. youtu.be/VIDEOID
     if (uri.host.contains('youtu.be')) {
-      if (uri.pathSegments.isNotEmpty) {
-        return uri.pathSegments.first;
-      }
+      if (uri.pathSegments.isNotEmpty) return uri.pathSegments.first;
     }
-
-    // 3. youtube.com/watch?v=VIDEOID
     if (uri.host.contains('youtube.com')) {
       final v = uri.queryParameters['v'];
-      if (v != null && v.isNotEmpty) {
-        return v;
-      }
-
-      // 4. shorts 링크: /shorts/VIDEOID
+      if (v != null && v.isNotEmpty) return v;
       final segments = uri.pathSegments;
       if (segments.isNotEmpty && segments.first == 'shorts' && segments.length >= 2) {
         return segments[1];
       }
     }
-
     return null;
   }
 
   bool get _isMyPost {
     final user = _auth.currentUser;
-    if (user == null || _postDoc == null) return false;
-    final data = _postDoc!.data()!;
-    return data['uid'] == user.uid;
+    // _postDoc이 로드되기 전에는 postData의 uid로 확인
+    final writerUid = _postDoc?.data()?['uid'] ?? widget.postData['uid'];
+    return user != null && writerUid == user.uid;
   }
 
   Future<void> _showEditPostDialog() async {
-    if (_postDoc == null) return;
+    // 최신 데이터가 없으면 postData 사용
+    final data = _postDoc?.data() ?? widget.postData;
 
-    final data = _postDoc!.data()!;
     final titleCtrl = TextEditingController(text: data['title'] ?? '');
     final contentCtrl = TextEditingController(text: data['content'] ?? '');
-    final youtubeCtrl =
-    TextEditingController(text: (data['youtubeUrl'] ?? '').toString());
+    final youtubeCtrl = TextEditingController(text: (data['youtubeUrl'] ?? '').toString());
 
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.grey[850],
-        title: const Text(
-          '게시글 수정',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('게시글 수정', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -181,85 +151,46 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               TextField(
                 controller: titleCtrl,
                 style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: '제목',
-                  labelStyle: TextStyle(color: Colors.grey),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                ),
+                decoration: const InputDecoration(labelText: '제목', labelStyle: TextStyle(color: Colors.grey), enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey))),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: contentCtrl,
                 style: const TextStyle(color: Colors.white),
                 maxLines: 5,
-                decoration: const InputDecoration(
-                  labelText: '내용',
-                  labelStyle: TextStyle(color: Colors.grey),
-                  border: OutlineInputBorder(),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                ),
+                decoration: const InputDecoration(labelText: '내용', labelStyle: TextStyle(color: Colors.grey), border: OutlineInputBorder(), enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.grey))),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: youtubeCtrl,
                 style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
-                  labelText: '유튜브 링크(선택)',
-                  labelStyle: TextStyle(color: Colors.grey),
-                  hintText: 'https://youtu.be/xxxx 또는 https://www.youtube.com/watch?v=xxxx',
-                  hintStyle: TextStyle(color: Colors.grey, fontSize: 11),
-                  enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                ),
+                decoration: const InputDecoration(labelText: '유튜브 링크(선택)', labelStyle: TextStyle(color: Colors.grey), hintText: 'https://youtu.be/...', hintStyle: TextStyle(color: Colors.grey, fontSize: 11), enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey))),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('취소', style: TextStyle(color: Colors.grey)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소', style: TextStyle(color: Colors.grey))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue[900],
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[900]),
             onPressed: () async {
-              final title = titleCtrl.text.trim();
-              final content = contentCtrl.text.trim();
-              final youtubeUrl = youtubeCtrl.text.trim();
+              if (titleCtrl.text.trim().isEmpty || contentCtrl.text.trim().isEmpty) return;
 
-              if (title.isEmpty || content.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('제목과 내용을 모두 입력해주세요.')),
-                );
-                return;
-              }
+              // 업데이트할 참조가 필요하므로 _postDoc이 로드될 때까지 대기 혹은 직접 참조 생성
+              final docRef = FirebaseFirestore.instance.collection('posts').doc(widget.postId);
 
-              await _postDoc!.reference.update({
-                'title': title,
-                'content': content,
-                'youtubeUrl': youtubeUrl.isEmpty ? null : youtubeUrl,
+              await docRef.update({
+                'title': titleCtrl.text.trim(),
+                'content': contentCtrl.text.trim(),
+                'youtubeUrl': youtubeCtrl.text.trim().isEmpty ? null : youtubeCtrl.text.trim(),
               });
 
-              // 영상 링크 변경 반영
-              _ytController?.close();
-              _ytController = null;
-              _rawYoutubeUrl = youtubeUrl.isEmpty ? null : youtubeUrl;
-              if (_rawYoutubeUrl != null) {
-                _initYoutube(_rawYoutubeUrl!);
-              }
+              // 화면 갱신을 위해 다시 로드
+              await _loadPostRef();
+              // 현재 화면 데이터 갱신
+              _initDataFromArgs();
 
-              await _loadPost();
-
-              if (mounted) {
-                Navigator.pop(ctx);
-              }
+              if (mounted) Navigator.pop(ctx);
             },
             child: const Text('저장', style: TextStyle(color: Colors.white)),
           ),
@@ -269,52 +200,38 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   Future<void> _confirmDeletePost() async {
-    if (_postDoc == null) return;
-
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.grey[850],
         title: const Text('게시글 삭제', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          '정말로 이 게시글을 삭제할까요?\n댓글도 함께 삭제됩니다.',
-          style: TextStyle(color: Colors.white70),
-        ),
+        content: const Text('정말로 이 게시글을 삭제할까요?\n댓글도 함께 삭제됩니다.', style: TextStyle(color: Colors.white70)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('취소', style: TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('삭제', style: TextStyle(color: Colors.red)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소', style: TextStyle(color: Colors.grey))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('삭제', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
 
     if (ok != true) return;
 
-    final postRef = _postDoc!.reference;
+    final postRef = FirebaseFirestore.instance.collection('posts').doc(widget.postId);
     final commentsSnap = await postRef.collection('comments').get();
-
     final batch = FirebaseFirestore.instance.batch();
+
     for (final c in commentsSnap.docs) {
       batch.delete(c.reference);
     }
     batch.delete(postRef);
     await batch.commit();
 
-    if (!mounted) return;
-    Navigator.pop(context); // 목록으로 복귀
+    if (mounted) Navigator.pop(context);
   }
 
   Future<void> _sendComment() async {
     final user = _auth.currentUser;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('로그인이 필요합니다.')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('로그인이 필요합니다.')));
       return;
     }
 
@@ -333,8 +250,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     });
 
     _commentCtrl.clear();
+    FocusScope.of(context).unfocus();
   }
 
+  // 댓글 수정/삭제 로직 (기존과 동일)
   Future<void> _editComment(DocumentSnapshot<Map<String, dynamic>> commentDoc) async {
     final data = commentDoc.data()!;
     final contentCtrl = TextEditingController(text: data['content'] ?? '');
@@ -344,118 +263,61 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.grey[850],
         title: const Text('댓글 수정', style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: contentCtrl,
-          style: const TextStyle(color: Colors.white),
-          maxLines: 3,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            enabledBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: Colors.grey),
-            ),
-          ),
-        ),
+        content: TextField(controller: contentCtrl, style: const TextStyle(color: Colors.white), maxLines: 3, decoration: const InputDecoration(border: OutlineInputBorder(), enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.grey)))),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('취소', style: TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () async {
-              final newText = contentCtrl.text.trim();
-              if (newText.isEmpty) return;
-
-              await commentDoc.reference.update({'content': newText});
-              if (mounted) {
-                Navigator.pop(ctx);
-              }
-            },
-            child: const Text('저장', style: TextStyle(color: Colors.blue)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소', style: TextStyle(color: Colors.grey))),
+          TextButton(onPressed: () async {
+            if (contentCtrl.text.trim().isEmpty) return;
+            await commentDoc.reference.update({'content': contentCtrl.text.trim()});
+            if (mounted) Navigator.pop(ctx);
+          }, child: const Text('저장', style: TextStyle(color: Colors.blue))),
         ],
       ),
     );
   }
 
-  Future<void> _deleteComment(
-      DocumentSnapshot<Map<String, dynamic>> commentDoc) async {
+  Future<void> _deleteComment(DocumentSnapshot<Map<String, dynamic>> commentDoc) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.grey[850],
         title: const Text('댓글 삭제', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          '이 댓글을 삭제할까요?',
-          style: TextStyle(color: Colors.white70),
-        ),
+        content: const Text('이 댓글을 삭제할까요?', style: TextStyle(color: Colors.white70)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('취소', style: TextStyle(color: Colors.grey)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('삭제', style: TextStyle(color: Colors.red)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소', style: TextStyle(color: Colors.grey))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('삭제', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
-
-    if (ok == true) {
-      await commentDoc.reference.delete();
-    }
+    if (ok == true) await commentDoc.reference.delete();
   }
 
   @override
   Widget build(BuildContext context) {
     final user = _auth.currentUser;
+    // 데이터는 widget.postData를 우선 사용하되, _postDoc이 로드되면 그 데이터를 사용 (수정 사항 반영 위해)
+    final displayData = _postDoc?.data() ?? widget.postData;
 
     return Scaffold(
       backgroundColor: Colors.grey[900],
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: Text(
-          _postDoc?.data()?['title'] ?? '게시글 상세',
-          overflow: TextOverflow.ellipsis,
-        ),
+        title: Text(displayData['title'] ?? '게시글 상세', overflow: TextOverflow.ellipsis),
         actions: [
           if (_isMyPost)
             PopupMenuButton<String>(
               color: Colors.grey[850],
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              onSelected: (value) {
-                if (value == 'edit') {
-                  _showEditPostDialog();
-                } else if (value == 'delete') {
-                  _confirmDeletePost();
-                }
-              },
+              icon: const Icon(Icons.more_vert, color: Colors.white),
+              onSelected: (value) => value == 'edit' ? _showEditPostDialog() : _confirmDeletePost(),
               itemBuilder: (ctx) => [
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Text('수정', style: TextStyle(color: Colors.white)),
-                ),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: Text('삭제', style: TextStyle(color: Colors.red)),
-                ),
+                const PopupMenuItem(value: 'edit', child: Text('수정', style: TextStyle(color: Colors.white))),
+                const PopupMenuItem(value: 'delete', child: Text('삭제', style: TextStyle(color: Colors.red))),
               ],
             ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _postDoc == null
-          ? const Center(
-        child: Text(
-          '게시글을 찾을 수 없습니다.',
-          style: TextStyle(color: Colors.white70),
-        ),
-      )
-          : Column(
+      body: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
@@ -463,27 +325,19 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildPostHeader(),
+                  _buildPostHeader(displayData),
                   const SizedBox(height: 16),
-                  // ★ 유튜브 플레이어 빌드 로직
                   if (_ytController != null) _buildYoutubePlayer(),
-                  if (_rawYoutubeUrl != null &&
-                      (_ytController == null))
-                    _buildYoutubeFallbackLink(),
-                  const SizedBox(height: 8),
-                  _buildPostContent(),
-                  const SizedBox(height: 24),
+                  if (_rawYoutubeUrl != null && _ytController == null) _buildYoutubeFallbackLink(),
+                  const SizedBox(height: 16),
+                  Text(displayData['content'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5)),
+                  const SizedBox(height: 30),
                   const Divider(color: Colors.grey),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '댓글',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
+                  const Text('댓글', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                  const SizedBox(height: 10),
                   _buildCommentsList(user),
+                  const SizedBox(height: 20), // 댓글 리스트 하단 여백
                 ],
               ),
             ),
@@ -494,39 +348,29 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     );
   }
 
-  Widget _buildPostHeader() {
-    final data = _postDoc!.data()!;
+  Widget _buildPostHeader(Map<String, dynamic> data) {
     final writer = data['writer'] ?? '익명 팬';
     final ts = data['timestamp'] as Timestamp?;
     String dateStr = '';
     if (ts != null) {
       final dt = ts.toDate();
-      dateStr = '${dt.year}.${dt.month}.${dt.day}';
+      dateStr = '${dt.year}.${dt.month}.${dt.day} ${dt.hour}:${dt.minute.toString().padLeft(2,'0')}';
     }
 
     return Row(
       children: [
-        const CircleAvatar(
-          radius: 18,
-          backgroundColor: Colors.blueGrey,
-          child: Text('팬', style: TextStyle(color: Colors.white, fontSize: 12)),
+        CircleAvatar(
+          radius: 20,
+          backgroundColor: Colors.grey[800],
+          child: const Icon(Icons.sports_baseball, size: 22, color: Colors.white),
         ),
         const SizedBox(width: 12),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              writer,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14),
-            ),
+            Text(writer, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
             const SizedBox(height: 2),
-            Text(
-              dateStr,
-              style: TextStyle(color: Colors.grey[500], fontSize: 12),
-            ),
+            Text(dateStr, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
           ],
         ),
       ],
@@ -543,182 +387,76 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     );
   }
 
-  // ★ 누락된 메서드 복구 1: 유튜브 로드 실패 시 링크 표시
   Widget _buildYoutubeFallbackLink() {
     return GestureDetector(
-      onTap: () {
-        // 🔹 여기서 url_launcher로 외부 브라우저 여는 것도 가능 (원하면 추가)
-      },
+      onTap: () { /* 링크 열기 로직 */ },
       child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.red.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.redAccent, width: 0.5),
-        ),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.redAccent)),
         child: Row(
           children: [
             const Icon(Icons.play_circle_fill, color: Colors.redAccent),
             const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                _rawYoutubeUrl ?? '',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  decoration: TextDecoration.underline,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
+            Expanded(child: Text(_rawYoutubeUrl ?? '', style: const TextStyle(color: Colors.white, decoration: TextDecoration.underline), maxLines: 1, overflow: TextOverflow.ellipsis)),
           ],
         ),
       ),
     );
   }
 
-  // ★ 누락된 메서드 복구 2: 게시글 본문 표시
-  Widget _buildPostContent() {
-    final data = _postDoc!.data()!;
-    return Text(
-      data['content'] ?? '',
-      style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
-    );
-  }
-
-
   Widget _buildCommentsList(User? user) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('posts')
-          .doc(widget.postId)
-          .collection('comments')
-          .orderBy('timestamp', descending: false)
-          .snapshots(),
+      stream: FirebaseFirestore.instance.collection('posts').doc(widget.postId).collection('comments').orderBy('timestamp', descending: false).snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return const Text(
-            '댓글을 불러오는데 실패했습니다.',
-            style: TextStyle(color: Colors.white70),
-          );
-        }
-        if (!snapshot.hasData) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final comments = snapshot.data!.docs;
-        if (comments.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text(
-              '첫 댓글을 남겨보세요!',
-              style: TextStyle(color: Colors.grey),
-            ),
-          );
-        }
+        if (comments.isEmpty) return const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('첫 댓글을 남겨보세요!', style: TextStyle(color: Colors.grey))));
 
         return ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: comments.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 6),
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
           itemBuilder: (ctx, index) {
             final c = comments[index];
             final data = c.data();
-            final writerName = data['writerName'] ?? '익명 팬';
-            final content = data['content'] ?? '';
-            final ts = data['timestamp'] as Timestamp?;
+            final isMyComment = user != null && data['writerUid'] == user.uid;
+
+            // 시간 표시
             String timeStr = '';
-            if (ts != null) {
-              final dt = ts.toDate();
-              timeStr = '${dt.month}/${dt.day} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+            if (data['timestamp'] != null) {
+              final dt = (data['timestamp'] as Timestamp).toDate();
+              timeStr = '${dt.month}/${dt.day} ${dt.hour}:${dt.minute.toString().padLeft(2,'0')}';
             }
 
-            final isMyComment =
-                user != null && data['writerUid'] == user.uid;
-
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const CircleAvatar(
-                  radius: 14,
-                  backgroundColor: Colors.blueGrey,
-                  child: Icon(Icons.person,
-                      size: 16, color: Colors.white),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Container(
-                    padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[850],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              writerName,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              timeStr,
-                              style: TextStyle(
-                                  color: Colors.grey[500], fontSize: 11),
-                            ),
-                            const Spacer(),
-                            if (isMyComment)
-                              PopupMenuButton<String>(
-                                padding: EdgeInsets.zero,
-                                color: Colors.grey[850],
-                                icon: const Icon(Icons.more_vert,
-                                    size: 16, color: Colors.grey),
-                                onSelected: (value) {
-                                  if (value == 'edit') {
-                                    _editComment(c);
-                                  } else if (value == 'delete') {
-                                    _deleteComment(c);
-                                  }
-                                },
-                                itemBuilder: (ctx) => const [
-                                  PopupMenuItem(
-                                    value: 'edit',
-                                    child: Text('수정',
-                                        style:
-                                        TextStyle(color: Colors.white)),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'delete',
-                                    child: Text('삭제',
-                                        style: TextStyle(color: Colors.red)),
-                                  ),
-                                ],
-                              ),
-                          ],
+            return Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.grey[850], borderRadius: BorderRadius.circular(8)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(data['writerName'] ?? '익명', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(width: 8),
+                      Text(timeStr, style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                      const Spacer(),
+                      if (isMyComment)
+                        PopupMenuButton<String>(
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(Icons.more_horiz, size: 18, color: Colors.grey),
+                            onSelected: (val) => val == 'edit' ? _editComment(c) : _deleteComment(c),
+                            itemBuilder: (ctx) => [
+                              const PopupMenuItem(value: 'edit', child: Text('수정')),
+                              const PopupMenuItem(value: 'delete', child: Text('삭제', style: TextStyle(color: Colors.red))),
+                            ]
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          content,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 13),
-                        ),
-                      ],
-                    ),
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(data['content'] ?? '', style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                ],
+              ),
             );
           },
         );
@@ -727,37 +465,30 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   Widget _buildCommentInputArea() {
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.black,
-          border: Border(
-            top: BorderSide(color: Colors.grey[800]!),
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _commentCtrl,
-                style: const TextStyle(color: Colors.white),
-                maxLines: 3,
-                minLines: 1,
-                decoration: const InputDecoration(
-                  hintText: '댓글을 입력하세요',
-                  hintStyle: TextStyle(color: Colors.grey),
-                  border: InputBorder.none,
-                ),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      decoration: const BoxDecoration(color: Colors.black, border: Border(top: BorderSide(color: Colors.grey, width: 0.3))),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _commentCtrl,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: '댓글을 입력하세요',
+                hintStyle: TextStyle(color: Colors.grey[600]),
+                filled: true, fillColor: Colors.grey[900],
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(25), borderSide: BorderSide.none),
               ),
             ),
-            IconButton(
-              onPressed: _sendComment,
-              icon: const Icon(Icons.send, color: Colors.blueAccent),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 10),
+          CircleAvatar(
+            backgroundColor: Colors.blue[900], radius: 22,
+            child: IconButton(icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20), onPressed: _sendComment),
+          ),
+        ],
       ),
     );
   }
