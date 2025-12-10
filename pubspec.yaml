@@ -51,9 +51,13 @@ flutter:
   # Material Icons 폰트 사용 설정
   uses-material-design: true
 
-  # 폰트 에셋 등록
+  # ★ 이미지와 폰트 폴더를 모두 등록합니다.
+  assets:
+    - assets/ # ★ assets 폴더 전체를 등록합니다. (팀 로고 이미지 포함)
+    - assets/fonts/ # 폰트 폴더 등록 (유지)
+
   fonts:
     - family: NotoSansKR  # 폰트 패밀리 이름 정의 (lib/main.dart의 theme에 사용)
       fonts:
-        - asset: assets/fonts/NotoSansKR-VariableFont_wght.ttf # 다운로드한 폰트 파일 경로
-          weight: 400 # Regular
+        - asset: assets/fonts/NotoSansKR-VariableFont_wght.ttf # 경로 확인!
+          weight: 400
