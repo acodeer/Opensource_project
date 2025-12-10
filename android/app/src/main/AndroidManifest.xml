@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="flc_project"
+        android:label="갈래말래"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

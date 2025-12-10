@@ -35,6 +35,14 @@ dev_dependencies:
 
   flutter_lints: ^5.0.0
 
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+  image_path: "appicon.png" # ★ 사용할 이미지 경로 (야구공 이미지 추천)
+  min_sdk_android: 21 # 안드로이드 최소 버전 호환
+
 # ----------------------------------------------------
 # ★ 중요: 'flutter:' 섹션 아래에 'uses-material-design'와 'fonts'를 위치시킵니다.
 # ----------------------------------------------------
