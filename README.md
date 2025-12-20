@@ -97,9 +97,9 @@ classDiagram
         +String ownerName
         +String seatPref
         +int maxPlayers
-        +List~String~ participants
-        +List~String~ participantUids
-        +List~String~ tags
+        +List~string~ participants
+        +List~string~ participantUids
+        +List~string~ tags
         +Timestamp createdAt
         +String status
         +fromFirestore(DocumentSnapshot doc) MatchParty$
@@ -124,14 +124,13 @@ classDiagram
         +String creatorName
     }
 
-    %% 관계 정의 (수정된 문법)
-    UserModel "1" -- "0..*" MatchParty : "방장으로 소유 (ownerUid)"
-    UserModel "1" -- "0..*" MatchParty : "참여자로 가입 (participantUids)"
-    Game "1" -- "0..*" MatchParty : "특정 경기에 대한 파티 생성"
-    MatchParty "1" -- "0..*" ChatMessage : "실시간 메시지 포함"
-    UserModel "1" -- "0..*" Post : "게시글 작성 (uid)"
-    UserModel "1" -- "0..*" ChatMessage : "메시지 발신 (userId)"
-
+    %% 관계 정의: 텍스트에 공백이나 한글이 포함될 경우 인용부호 처리
+    UserModel "1" -- "0..*" MatchParty : 방장으로 소유 (ownerUid)
+    UserModel "1" -- "0..*" MatchParty : 참여자로 가입 (participantUids)
+    Game "1" -- "0..*" MatchParty : 특정 경기에 대한 파티 생성
+    MatchParty "1" -- "0..*" ChatMessage : 실시간 메시지 포함
+    UserModel "1" -- "0..*" Post : 게시글 작성 (uid)
+    UserModel "1" -- "0..*" ChatMessage : 메시지 발신 (userId)
 
 ---
 
