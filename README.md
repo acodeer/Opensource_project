@@ -56,8 +56,7 @@
 
 * **실시간 인프라:** Firebase Cloud Firestore와 1:1 매핑되어 별도의 새로고침 없이도 메시지 송수신과 데이터 동기화가 가능합니다.
 
-  
-```markdown
+
 ```mermaid
 classDiagram
     class UserModel {
@@ -125,9 +124,8 @@ classDiagram
     UserModel "1" -- "0..*" Post : 작성
     UserModel "1" -- "0..*" ChatMessage : 발신
 
-
-
 ---
+
 
 3. 기술 스택 및 개발 환경 
 
