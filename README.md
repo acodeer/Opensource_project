@@ -4,7 +4,7 @@
 
 # [오픈소스 프로젝트 최종보고서] 갈래말래 (Galae Malae)
 
-**개발 기간:** 2025. 10. 20 ~ 2025. 12. 10 (2개월) **팀 명:** FLC **GitHub:** [https://github.com/acodeer/Opensource_project](https://github.com/acodeer/Opensource_project) 
+**개발 기간:** 2025. 10. 20 ~ 2025. 12. 10 (2개월) **팀 명:** FLC 
 
 ---
 
@@ -38,13 +38,9 @@
 1) 주요 기능 상세 
 
 | 기능 분류 | 세부 기능 설명 | 사용자 시나리오 |
-
 | --- | --- | --- |
-
 |<br>**직관 파티 매칭** | 캘린더 UI를 활용해 경기 일정을 확인하고 매칭방 개설/참여. | 원하는 날짜의 경기(예: 삼성 vs 두산)를 선택 후, '3루 응원석', '먹방 위주' 등 본인 성향에 맞는 파티를 찾아 참여하거나 신규 개설. |
-
 |<br>**다층적 커뮤니티** | 파티 전용 채팅, 경기 당일 전체 채팅, 자유 게시판 제공. | 파티 확정 후 채팅방에서 티켓 예매와 모임 장소를 조율하고, 경기 중에는 전체 채팅을 통해 실시간 응원에 참여하며 후기를 공유. |
-
 |<br>**KBO 정보 제공** | 미래 일정, 과거 결과 조회 및 구단/선수별 스탯 사이트 연결. | 캘린더에서 경기 결과를 확인하고, 투수 선발 라인업이나 타율 등 상세 정보가 필요할 때 앱 내에서 즉시 스탯 정보를 탐색. |
 
 2) 상세 설계 및 아키텍처 
@@ -62,75 +58,71 @@
 ```mermaid
 classDiagram
     class UserModel {
-        +String uid
-        +String email
-        +String displayName
-        +String? photoURL
-        +String? preferredTeam
-        +int partyCount
-        +String? bio
-        +String? favoriteTeam
-        +fromFirebaseAuth(User user) UserModel$
-        +fromFirestore(DocumentSnapshot doc) UserModel$
-        +toFirestore() Map
-        +copyWith() UserModel
+        String uid
+        String email
+        String displayName
+        String photoURL
+        String preferredTeam
+        int partyCount
+        String bio
+        String favoriteTeam
     }
 
     class Game {
-        +String gameId
-        +String homeTeam
-        +String awayTeam
-        +DateTime date
-        +String stadium
-        +bool isFinished
-        +bool isCancelled
-        +int? homeScore
-        +int? awayScore
-        +String? homePitcher
-        +String? awayPitcher
+        String gameId
+        String homeTeam
+        String awayTeam
+        DateTime date
+        String stadium
+        bool isFinished
+        bool isCancelled
+        int homeScore
+        int awayScore
+        String homePitcher
+        String awayPitcher
     }
 
     class MatchParty {
-        +String matchId
-        +String gameId
-        +String ownerUid
-        +String ownerName
-        +String seatPref
-        +int maxPlayers
-        +List~string~ participants
-        +List~string~ participantUids
-        +List~string~ tags
-        +Timestamp createdAt
-        +String status
-        +fromFirestore(DocumentSnapshot doc) MatchParty$
+        String matchId
+        String gameId
+        String ownerUid
+        String ownerName
+        String seatPref
+        int maxPlayers
+        List participants
+        List participantUids
+        List tags
+        Timestamp createdAt
+        String status
     }
 
     class ChatMessage {
-        +String text
-        +Timestamp createdAt
-        +String userId
-        +String sender
+        String text
+        Timestamp createdAt
+        String userId
+        String sender
     }
 
     class Post {
-        +String category
-        +String title
-        +String content
-        +String writer
-        +String uid
-        +Timestamp timestamp
-        +String? youtubeUrl
-        +String creatorId
-        +String creatorName
+        String category
+        String title
+        String content
+        String writer
+        String uid
+        Timestamp timestamp
+        String youtubeUrl
+        String creatorId
+        String creatorName
     }
 
-    %% 관계 정의: 텍스트에 공백이나 한글이 포함될 경우 인용부호 처리
-    UserModel "1" -- "0..*" MatchParty : 방장으로 소유 (ownerUid)
-    UserModel "1" -- "0..*" MatchParty : 참여자로 가입 (participantUids)
-    Game "1" -- "0..*" MatchParty : 특정 경기에 대한 파티 생성
-    MatchParty "1" -- "0..*" ChatMessage : 실시간 메시지 포함
-    UserModel "1" -- "0..*" Post : 게시글 작성 (uid)
-    UserModel "1" -- "0..*" ChatMessage : 메시지 발신 (userId)
+    UserModel "1" -- "0..*" MatchParty : 소유
+    UserModel "1" -- "0..*" MatchParty : 참여
+    Game "1" -- "0..*" MatchParty : 경기
+    MatchParty "1" -- "0..*" ChatMessage : 채팅
+    UserModel "1" -- "0..*" Post : 작성
+    UserModel "1" -- "0..*" ChatMessage : 발신
+
+
 
 ---
 
