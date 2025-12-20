@@ -55,64 +55,67 @@
 
 
 * **실시간 인프라:** Firebase Cloud Firestore와 1:1 매핑되어 별도의 새로고침 없이도 메시지 송수신과 데이터 동기화가 가능합니다.
+
+  
+```markdown
 ```mermaid
 classDiagram
     class UserModel {
-        String uid
-        String email
-        String displayName
-        String photoURL
-        String preferredTeam
-        int partyCount
-        String bio
-        String favoriteTeam
+        uid
+        email
+        displayName
+        photoURL
+        preferredTeam
+        partyCount
+        bio
+        favoriteTeam
     }
 
     class Game {
-        String gameId
-        String homeTeam
-        String awayTeam
-        DateTime date
-        String stadium
-        bool isFinished
-        bool isCancelled
-        int homeScore
-        int awayScore
-        String homePitcher
-        String awayPitcher
+        gameId
+        homeTeam
+        awayTeam
+        date
+        stadium
+        isFinished
+        isCancelled
+        homeScore
+        awayScore
+        homePitcher
+        awayPitcher
     }
 
     class MatchParty {
-        String matchId
-        String gameId
-        String ownerUid
-        String ownerName
-        String seatPref
-        int maxPlayers
-        List participants
-        List participantUids
-        List tags
-        Timestamp createdAt
-        String status
+        matchId
+        gameId
+        ownerUid
+        ownerName
+        seatPref
+        maxPlayers
+        participants
+        participantUids
+        tags
+        createdAt
+        status
     }
 
     class ChatMessage {
-        String text
-        Timestamp createdAt
-        String userId
-        String sender
+        text
+        createdAt
+        userId
+        sender
     }
 
     class Post {
-        String category
-        String title
-        String content
-        String writer
-        String uid
-        Timestamp timestamp
-        String youtubeUrl
-        String creatorId
-        String creatorName
+        category
+        title
+        content
+        writer
+        uid
+        timestamp
+        youtubeUrl
+        creatorId
+        creatorName
     }
 
     UserModel "1" -- "0..*" MatchParty : 소유
