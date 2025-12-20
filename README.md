@@ -57,7 +57,7 @@
 * **실시간 인프라:** Firebase Cloud Firestore와 1:1 매핑되어 별도의 새로고침 없이도 메시지 송수신과 데이터 동기화가 가능합니다.
 
 
-
+```mermaid
 class someDiagram
 classDiagram
     class UserModel {
