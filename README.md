@@ -130,7 +130,7 @@ classDiagram
     MatchParty "1" -- "0..*" ChatMessage : "실시간 메시지 포함"
     UserModel "1" -- "0..*" Post : "게시글 작성 (uid)"
     UserModel "1" -- "0..*" ChatMessage : "메시지 발신 (userId)"
-
+```
 
 ---
 
