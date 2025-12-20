@@ -57,79 +57,76 @@
 * **실시간 인프라:** Firebase Cloud Firestore와 1:1 매핑되어 별도의 새로고침 없이도 메시지 송수신과 데이터 동기화가 가능합니다.
 
 
+## 2. 상세 설계 및 아키텍처
+
+아래는 시스템의 핵심 클래스 구조를 나타낸 클래스 다이어그램이다.
+
 ```mermaid
-class someDiagram
 classDiagram
     class UserModel {
-        +String uid
-        +String email
-        +String displayName
-        +String photoURL
-        +String preferredTeam
-        +int partyCount
-        +String bio
-        +String favoriteTeam
-        +fromFirebaseAuth(User user) UserModel$
-        +fromFirestore(DocumentSnapshot doc) UserModel$
-        +toFirestore() Map
-        +copyWith() UserModel
+        uid
+        email
+        displayName
+        photoURL
+        preferredTeam
+        partyCount
+        bio
+        favoriteTeam
     }
 
     class Game {
-        +String gameId
-        +String homeTeam
-        +String awayTeam
-        +DateTime date
-        +String stadium
-        +bool isFinished
-        +bool isCancelled
-        +int homeScore
-        +int awayScore
-        +String homePitcher
-        +String awayPitcher
+        gameId
+        homeTeam
+        awayTeam
+        date
+        stadium
+        isFinished
+        isCancelled
+        homeScore
+        awayScore
+        homePitcher
+        awayPitcher
     }
 
     class MatchParty {
-        +String matchId
-        +String gameId
-        +String ownerUid
-        +String ownerName
-        +String seatPref
-        +int maxPlayers
-        +List~string~ participants
-        +List~string~ participantUids
-        +List~string~ tags
-        +Timestamp createdAt
-        +String status
-        +fromFirestore(DocumentSnapshot doc) MatchParty$
+        matchId
+        gameId
+        ownerUid
+        ownerName
+        seatPref
+        maxPlayers
+        participants
+        participantUids
+        tags
+        createdAt
+        status
     }
 
     class ChatMessage {
-        +String text
-        +Timestamp createdAt
-        +String userId
-        +String sender
+        text
+        createdAt
+        userId
+        sender
     }
 
     class Post {
-        +String category
-        +String title
-        +String content
-        +String writer
-        +String uid
-        +Timestamp timestamp
-        +String youtubeUrl
-        +String creatorId
-        +String creatorName
+        category
+        title
+        content
+        writer
+        uid
+        timestamp
+        youtubeUrl
+        creatorId
+        creatorName
     }
 
-    %% 관계 정의: 라벨에 특수문자나 공백이 있을 경우 따옴표로 감싸는 것이 가장 안전합니다.
-    UserModel "1" -- "0..*" MatchParty : "방장으로 소유 (ownerUid)"
-    UserModel "1" -- "0..*" MatchParty : "참여자로 가입 (participantUids)"
-    Game "1" -- "0..*" MatchParty : "특정 경기에 대한 파티 생성"
-    MatchParty "1" -- "0..*" ChatMessage : "실시간 메시지 포함"
-    UserModel "1" -- "0..*" Post : "게시글 작성 (uid)"
-    UserModel "1" -- "0..*" ChatMessage : "메시지 발신 (userId)"
+    UserModel "1" -- "0..*" MatchParty : 소유
+    UserModel "1" -- "0..*" MatchParty : 참여
+    Game "1" -- "0..*" MatchParty : 경기
+    MatchParty "1" -- "0..*" ChatMessage : 채팅
+    UserModel "1" -- "0..*" Post : 작성
+    UserModel "1" -- "0..*" ChatMessage : 발신
 ```
 
 ---
